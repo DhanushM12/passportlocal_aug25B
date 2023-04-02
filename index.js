@@ -4,6 +4,8 @@ const port = 8080;
 const passport = require('passport')
 const session = require('express-session')
 const initialize = require('./config/passportLocal')
+const bcrypt = require('bcrypt')
+const methodOverride = require('method-override')
 
 const users = [];
 
@@ -23,9 +25,10 @@ app.use(session({
 
 app.use(passport.initialize());
 app.use(passport.session());
+app.use(methodOverride('_method'))
 
 app.get('/', checkAuthenticated, (req, res) => {
-    res.render('index')
+    res.render('index', {name: req.user.name})
 })
 
 app.get('/login', checkNotAuthenticated, (req, res) => {
@@ -35,6 +38,35 @@ app.get('/login', checkNotAuthenticated, (req, res) => {
 app.get('/register', checkNotAuthenticated, (req, res) => {
     res.render('register')
 })
+
+app.post('/register', async (req, res) => {
+    try {
+        const hashpassword = await bcrypt.hash(req.body.password, 10)
+        users.push({
+            id: Date.now().toString(),
+            name: req.body.name,
+            email: req.body.email,
+            password: hashpassword
+        })
+        return res.redirect('/login');
+    } catch (error) {
+        console.log(error)
+        return res.redirect('/register')
+    }
+})
+
+app.post('/login', passport.authenticate('local', {failureRedirect: '/login', successRedirect: '/'}))
+
+app.delete('/logout', (req, res) => {
+    req.logOut(function(err){
+        if(err){
+            console.log(err)
+            return res.redirect('/');
+        }
+        return res.redirect('/login')
+    })
+})
+
 
 
 function checkAuthenticated(req, res, next){
